@@ -27,6 +27,8 @@ final class CloudRunFunction implements CloudRunFunctionInterface
 
         try {
             return $this->handle($request, $requestOrigin);
+        } catch (BadRequestExceptionInterface $exception) {
+            return new JsonErrorResponse($this->functionConfig, $exception->getMessage(), ResponseInterface::STATUS_BAD_REQUEST, $requestOrigin);
         } catch (UserFriendlyExceptionInterface $exception) {
             return new JsonErrorResponse($this->functionConfig, $exception->getMessage(), JsonErrorResponseInterface::DEFAULT_ERROR_STATUS_CODE, $requestOrigin);
         } catch (Throwable $exception) {
