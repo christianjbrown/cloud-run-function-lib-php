@@ -6,6 +6,7 @@ namespace ChristianBrown\CloudRunFunction\Tests;
 
 use ChristianBrown\CloudRunFunction\AbstractJsonResponse;
 use ChristianBrown\CloudRunFunction\AllowOriginResolver;
+use ChristianBrown\CloudRunFunction\BadRequestException;
 use ChristianBrown\CloudRunFunction\CacheHeaderBuilder;
 use ChristianBrown\CloudRunFunction\CloudRunFunction;
 use ChristianBrown\CloudRunFunction\CloudRunFunctionInterface;
@@ -36,6 +37,54 @@ use RuntimeException;
 #[CoversClass(CloudRunFunction::class)]
 final class CloudRunFunctionTest extends TestCase
 {
+    /**
+     * A malformed request is the caller's fault, not the service's, so it must
+     * answer 400. Answering 500 makes a bot probing unknown paths look like a
+     * service outage in Cloud Monitoring.
+     *
+     * @throws Exception
+     */
+    public function testBadRequestExceptionAnswers400(): void
+    {
+        $request = self::createStub(ServerRequestInterface::class);
+        $request->method('hasHeader')
+            ->willReturn(true);
+        $request->method('getHeaderLine')
+            ->willReturnMap([
+                ['test-header-key', 'test-header-value'],
+                [ResponseInterface::HEADER_KEY_ORIGIN, ''],
+            ]);
+
+        // Cannot mock getMessage in Exception because it is final, need a real class
+        $badRequestException = new BadRequestException('test-bad-request-message');
+
+        $dataProvider = self::createStub(DataProviderInterface::class);
+        $dataProvider->method('getData')
+            ->willThrowException($badRequestException);
+
+        $functionConfig = self::createStub(FunctionConfigInterface::class);
+        $functionConfig->method('getRequiredHeaderKey')
+            ->willReturn('test-header-key');
+        $functionConfig->method('getRequiredHeaderValue')
+            ->willReturn('test-header-value');
+        $functionConfig->method('getRequiredOrigin')
+            ->willReturn('test-origin');
+        $functionConfig->method('getKrevision')
+            ->willReturn('test-krevision');
+        $functionConfig->method('getUseCacheTtl')
+            ->willReturn(3600);
+        $functionConfig->method('getUseCacheButRequestTtl')
+            ->willReturn(7200);
+        $functionConfig->method('getUseCacheIfErrorTtl')
+            ->willReturn(259200);
+
+        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+
+        $actual = $cloudFunction->run($request);
+
+        self::assertResponseError($actual, 'test-bad-request-message', ResponseInterface::STATUS_BAD_REQUEST, 'test-origin', 'Accept-Encoding,Origin,test-header-key');
+    }
+
     /**
      * @throws Exception
      */
