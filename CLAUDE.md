@@ -51,7 +51,7 @@ Everything lives directly under `src/` (no sub-layers). PSR-4: `ChristianBrown\C
 - **`DataProviderInterface`** — the single method a consumer implements:
   `getData(ServerRequestInterface): array`.
 - **`FunctionConfig`** / **`FunctionConfigInterface`** — a mutable settings object (fluent setters)
-  holding the revision, debug flag, required header key/value, required origin, and three cache TTLs.
+  holding the revision, debug flag, required header key/value, required origin, and four cache TTLs.
 - **`FunctionConfigTransformer`** / **`FunctionConfigTransformerInterface`** — builds a
   `FunctionConfig` from an environment-variable array (`K_REVISION` required; the rest optional),
   with `ENV_*` key constants on the interface.
@@ -70,8 +70,11 @@ Everything lives directly under `src/` (no sub-layers). PSR-4: `ChristianBrown\C
   decision, isolated for direct testing: it pins the configured origin in production and only reflects a
   genuine loopback origin (`localhost`/`127.0.0.1` host, parsed — not substring-matched) when `DEBUG` is on.
 - **`CacheHeaderBuilder` / `CacheHeaderBuilderInterface`** — builds `Cache-Control` / `Surrogate-Control`
-  from the three cache TTLs on a successful response; the directive templates (`max-age=%d`, `s-maxage=%d`,
-  `stale-while-revalidate=%d`, `stale-if-error=%d`) are constants on its interface.
+  from the cache TTLs on a successful response; the directive templates (`max-age=%d`, `s-maxage=%d`,
+  `stale-while-revalidate=%d`, `stale-if-error=%d`, `must-revalidate`) are constants on its interface.
+  `USE_BROWSER_CACHE_TTL` splits the browser's `max-age` from the CDN's: when it is set, the stale
+  directives are emitted on `Surrogate-Control` only, since they carry no `s-` prefix and would
+  otherwise let a browser serve a days-old body. Unset, the output is unchanged.
 - **`ResponseInterface`** — extends the PSR-7 response interface and centralizes every header name,
   content type, the default `HEADERS` array, and the response-body key names as typed constants.
 

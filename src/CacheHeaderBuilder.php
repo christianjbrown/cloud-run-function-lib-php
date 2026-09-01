@@ -23,11 +23,14 @@ final class CacheHeaderBuilder implements CacheHeaderBuilderInterface
             return $headers;
         }
 
+        $browserTtl = $functionConfig->getUseBrowserCacheTtl();
+        $splitBrowserTtl = null !== $browserTtl;
+
         $cacheControlParts = [];
         $surrogateControlParts = [];
-        [$cacheControlParts, $surrogateControlParts] = self::appendUseCacheTtl($cacheControlParts, $surrogateControlParts, $functionConfig->getUseCacheTtl());
-        [$cacheControlParts, $surrogateControlParts] = self::appendStaleWhileRevalidate($cacheControlParts, $surrogateControlParts, $functionConfig->getUseCacheButRequestTtl());
-        [$cacheControlParts, $surrogateControlParts] = self::appendStaleIfError($cacheControlParts, $surrogateControlParts, $functionConfig->getUseCacheIfErrorTtl());
+        [$cacheControlParts, $surrogateControlParts] = self::appendUseCacheTtl($cacheControlParts, $surrogateControlParts, $functionConfig->getUseCacheTtl(), $browserTtl);
+        [$cacheControlParts, $surrogateControlParts] = self::appendStaleWhileRevalidate($cacheControlParts, $surrogateControlParts, $functionConfig->getUseCacheButRequestTtl(), $splitBrowserTtl);
+        [$cacheControlParts, $surrogateControlParts] = self::appendStaleIfError($cacheControlParts, $surrogateControlParts, $functionConfig->getUseCacheIfErrorTtl(), $splitBrowserTtl);
 
         $headers = self::appendCacheControl($headers, $cacheControlParts);
         $headers = self::appendSurrogateControl($headers, $surrogateControlParts);
@@ -57,11 +60,13 @@ final class CacheHeaderBuilder implements CacheHeaderBuilderInterface
      *
      * @return array{0: string[], 1: string[]}
      */
-    private static function appendStaleIfError(array $cacheControlParts, array $surrogateControlParts, ?int $ttl): array
+    private static function appendStaleIfError(array $cacheControlParts, array $surrogateControlParts, ?int $ttl, bool $surrogateOnly): array
     {
         if ($ttl) {
             $staleIfError = sprintf(self::DIRECTIVE_STALE_IF_ERROR_SPRINTF, $ttl);
-            $cacheControlParts[] = $staleIfError;
+            if (!$surrogateOnly) {
+                $cacheControlParts[] = $staleIfError;
+            }
             $surrogateControlParts[] = $staleIfError;
         }
 
@@ -74,11 +79,13 @@ final class CacheHeaderBuilder implements CacheHeaderBuilderInterface
      *
      * @return array{0: string[], 1: string[]}
      */
-    private static function appendStaleWhileRevalidate(array $cacheControlParts, array $surrogateControlParts, ?int $ttl): array
+    private static function appendStaleWhileRevalidate(array $cacheControlParts, array $surrogateControlParts, ?int $ttl, bool $surrogateOnly): array
     {
         if ($ttl) {
             $staleWhileRevalidate = sprintf(self::DIRECTIVE_STALE_WHILE_REVALIDATE_SPRINTF, $ttl);
-            $cacheControlParts[] = $staleWhileRevalidate;
+            if (!$surrogateOnly) {
+                $cacheControlParts[] = $staleWhileRevalidate;
+            }
             $surrogateControlParts[] = $staleWhileRevalidate;
         }
 
@@ -120,13 +127,15 @@ final class CacheHeaderBuilder implements CacheHeaderBuilderInterface
      *
      * @return array{0: string[], 1: string[]}
      */
-    private static function appendUseCacheTtl(array $cacheControlParts, array $surrogateControlParts, ?int $ttl): array
+    private static function appendUseCacheTtl(array $cacheControlParts, array $surrogateControlParts, ?int $ttl, ?int $browserTtl): array
     {
         if ($ttl) {
-            $maxAge = sprintf(self::DIRECTIVE_MAX_AGE_SPRINTF, $ttl);
+            $surrogateControlParts[] = sprintf(self::DIRECTIVE_MAX_AGE_SPRINTF, $ttl);
             $cacheControlParts[] = sprintf(self::DIRECTIVE_S_MAXAGE_SPRINTF, $ttl);
-            $cacheControlParts[] = $maxAge;
-            $surrogateControlParts[] = $maxAge;
+            $cacheControlParts[] = sprintf(self::DIRECTIVE_MAX_AGE_SPRINTF, $browserTtl ?? $ttl);
+            if (0 === $browserTtl) {
+                $cacheControlParts[] = self::DIRECTIVE_MUST_REVALIDATE;
+            }
         }
 
         return [$cacheControlParts, $surrogateControlParts];

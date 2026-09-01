@@ -14,6 +14,7 @@ final class FunctionConfig implements FunctionConfigInterface
     private ?string $requiredHeaderValue = null;
     private ?string $requiredOrigin = null;
     private ?string $surrogateKey = null;
+    private ?int $useBrowserCacheTtl = null;
     private ?int $useCacheButRequestTtl = null;
     private ?int $useCacheIfErrorTtl = null;
     private ?int $useCacheTtl = null;
@@ -61,6 +62,11 @@ final class FunctionConfig implements FunctionConfigInterface
     public function getSurrogateKey(): ?string
     {
         return $this->surrogateKey;
+    }
+
+    public function getUseBrowserCacheTtl(): ?int
+    {
+        return $this->useBrowserCacheTtl;
     }
 
     public function getUseCacheButRequestTtl(): ?int
@@ -123,6 +129,13 @@ final class FunctionConfig implements FunctionConfigInterface
     public function setSurrogateKey(?string $value): self
     {
         $this->surrogateKey = $value;
+
+        return $this;
+    }
+
+    public function setUseBrowserCacheTtl(?int $value): FunctionConfigInterface
+    {
+        $this->useBrowserCacheTtl = $value;
 
         return $this;
     }

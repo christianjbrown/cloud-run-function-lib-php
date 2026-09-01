@@ -81,8 +81,42 @@ $response = $cloudFunction->run($request); // Psr\Http\Message\ResponseInterface
 | `REQUIRED_HEADER_KEY` / `REQUIRED_HEADER_VALUE` | Require this header on the request, else `401`. |
 | `REQUIRED_ORIGIN` | Value for `Access-Control-Allow-Origin` (enables the `Vary` header). |
 | `USE_CACHE_TTL` | `s-maxage` / `max-age` seconds for successful responses. |
+| `USE_BROWSER_CACHE_TTL` | `max-age` seconds for browsers only, when that should differ from the CDN's. See below. |
 | `USE_CACHE_BUT_REQUEST_TTL` | `stale-while-revalidate` seconds. |
 | `USE_CACHE_IF_ERROR_TTL` | `stale-if-error` seconds. |
+
+#### Letting a purge reach visitors
+
+By default the browser and the CDN are given the same TTL, so `USE_CACHE_TTL=3600`
+produces:
+
+```
+Cache-Control:     s-maxage=3600, max-age=3600, stale-while-revalidate=..., stale-if-error=...
+Surrogate-Control: max-age=3600, stale-while-revalidate=..., stale-if-error=...
+```
+
+That `max-age` is what makes a surrogate-key purge look like it did nothing: the
+CDN drops its copy, but a visitor who loaded the page in the last hour keeps
+theirs. Set `USE_BROWSER_CACHE_TTL` to split the two. With `0`:
+
+```
+Cache-Control:     s-maxage=3600, max-age=0, must-revalidate
+Surrogate-Control: max-age=3600, stale-while-revalidate=..., stale-if-error=...
+```
+
+The browser now revalidates on every page load, which the CDN answers from its
+own cache, so a purge is visible immediately. Fastly reads `Surrogate-Control`
+in preference to `Cache-Control` and strips it before the response reaches the
+client, so the CDN's own TTL and its stale-while-revalidate / stale-if-error
+resilience are untouched.
+
+Note what is **not** in that `Cache-Control`: the stale directives carry no `s-`
+prefix, so leaving them there would let a browser serve a body days old of its
+own accord and undo the point of revalidating. They are emitted on
+`Surrogate-Control` only whenever `USE_BROWSER_CACHE_TTL` is set.
+
+Leave the variable unset and the headers are exactly as they were before it
+existed.
 
 ### Response shape
 

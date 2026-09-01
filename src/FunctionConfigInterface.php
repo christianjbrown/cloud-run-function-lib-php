@@ -22,6 +22,8 @@ interface FunctionConfigInterface
 
     public function getSurrogateKey(): ?string;
 
+    public function getUseBrowserCacheTtl(): ?int;
+
     public function getUseCacheButRequestTtl(): ?int;
 
     public function getUseCacheIfErrorTtl(): ?int;
@@ -41,6 +43,8 @@ interface FunctionConfigInterface
     public function setRequiredOrigin(?string $value): self;
 
     public function setSurrogateKey(?string $value): self;
+
+    public function setUseBrowserCacheTtl(?int $value): self;
 
     public function setUseCacheButRequestTtl(?int $value): self;
 
