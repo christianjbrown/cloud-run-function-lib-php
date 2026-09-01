@@ -24,6 +24,7 @@ final class FunctionConfigTest extends TestCase
         self::assertNull($functionConfig->getRequiredOrigin());
         self::assertNull($functionConfig->getSurrogateKey());
         self::assertNull($functionConfig->getUseCacheTtl());
+        self::assertNull($functionConfig->getUseBrowserCacheTtl());
         self::assertNull($functionConfig->getUseCacheButRequestTtl());
         self::assertNull($functionConfig->getUseCacheIfErrorTtl());
 
@@ -35,6 +36,7 @@ final class FunctionConfigTest extends TestCase
         $functionConfig->setRequiredOrigin('test-required-origin');
         $functionConfig->setSurrogateKey('test-surrogate-key');
         $functionConfig->setUseCacheTtl(3600);
+        $functionConfig->setUseBrowserCacheTtl(0);
         $functionConfig->setUseCacheButRequestTtl(7200);
         $functionConfig->setUseCacheIfErrorTtl(259200);
 
@@ -46,6 +48,7 @@ final class FunctionConfigTest extends TestCase
         self::assertSame('test-required-origin', $functionConfig->getRequiredOrigin());
         self::assertSame('test-surrogate-key', $functionConfig->getSurrogateKey());
         self::assertSame(3600, $functionConfig->getUseCacheTtl());
+        self::assertSame(0, $functionConfig->getUseBrowserCacheTtl());
         self::assertSame(7200, $functionConfig->getUseCacheButRequestTtl());
         self::assertSame(259200, $functionConfig->getUseCacheIfErrorTtl());
     }

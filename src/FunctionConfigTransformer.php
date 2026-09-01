@@ -38,6 +38,7 @@ final class FunctionConfigTransformer implements FunctionConfigTransformerInterf
         self::applyRequiredHeaderValue($config, $env);
         self::applyRequiredOrigin($config, $env);
         self::applySurrogateKey($config, $env);
+        self::applyUseBrowserCacheTtl($config, $env);
         self::applyUseCacheTtl($config, $env);
         self::applyUseCacheButRequestTtl($config, $env);
         self::applyUseCacheIfErrorTtl($config, $env);
@@ -141,6 +142,28 @@ final class FunctionConfigTransformer implements FunctionConfigTransformerInterf
             return;
         }
         $config->setSurrogateKey($env[self::ENV_SURROGATE_KEY]);
+    }
+
+    /**
+     * How long a browser may hold the response, when that should differ from
+     * how long the CDN may.
+     *
+     * Checked with isset rather than empty, unlike every other TTL here: zero
+     * is the value this setting exists to express ("revalidate every time"),
+     * and empty('0') is true, so an empty check would silently discard exactly
+     * the case worth configuring.
+     *
+     * @phpstan-param mixed[] $env
+     */
+    private static function applyUseBrowserCacheTtl(FunctionConfigInterface $config, array $env): void
+    {
+        if (!isset($env[self::ENV_USE_BROWSER_CACHE_TTL])) {
+            return;
+        }
+        if (!is_numeric($env[self::ENV_USE_BROWSER_CACHE_TTL])) {
+            return;
+        }
+        $config->setUseBrowserCacheTtl((int) $env[self::ENV_USE_BROWSER_CACHE_TTL]);
     }
 
     /**

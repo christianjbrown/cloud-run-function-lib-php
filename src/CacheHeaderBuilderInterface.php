@@ -7,6 +7,7 @@ namespace ChristianBrown\CloudRunFunction;
 interface CacheHeaderBuilderInterface
 {
     public const string DIRECTIVE_MAX_AGE_SPRINTF = 'max-age=%d';
+    public const string DIRECTIVE_MUST_REVALIDATE = 'must-revalidate';
     public const string DIRECTIVE_S_MAXAGE_SPRINTF = 's-maxage=%d';
     public const string DIRECTIVE_STALE_IF_ERROR_SPRINTF = 'stale-if-error=%d';
     public const string DIRECTIVE_STALE_WHILE_REVALIDATE_SPRINTF = 'stale-while-revalidate=%d';
