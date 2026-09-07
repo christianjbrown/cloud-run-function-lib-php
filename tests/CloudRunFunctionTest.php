@@ -27,6 +27,12 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 
+use function file_get_contents;
+use function ini_set;
+use function sys_get_temp_dir;
+use function tempnam;
+use function unlink;
+
 #[CoversClass(JsonSuccessResponse::class)]
 #[CoversClass(JsonErrorResponse::class)]
 #[CoversClass(AbstractJsonResponse::class)]
@@ -306,7 +312,23 @@ final class CloudRunFunctionTest extends TestCase
 
         $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
 
-        $actual = $cloudFunction->run($request);
+        // run() logs the cause via error_log() for Cloud Logging; divert it to a temp
+        // file so the strict-output check does not see it as unexpected output, and so
+        // the test can assert the exception really was recorded.
+        $errorLog = (string) tempnam(sys_get_temp_dir(), 'cloud-run-function-test');
+        $previousErrorLog = (string) ini_set('error_log', $errorLog);
+
+        try {
+            $actual = $cloudFunction->run($request);
+            $logged = (string) file_get_contents($errorLog);
+        } finally {
+            ini_set('error_log', $previousErrorLog);
+            unlink($errorLog);
+        }
+
+        // The generic envelope hides the cause from the caller, so the log is the only
+        // place it survives — assert it in both debug modes.
+        self::assertStringContainsString('test-exception-message', $logged);
 
         if ($debug) {
             self::assertResponseError($actual, 'test-exception-message', 500, 'test-origin', 'Accept-Encoding,Origin,test-header-key');

@@ -9,7 +9,7 @@ It is built around [PSR-7](https://www.php-fig.org/psr/psr-7/): you hand it a `S
 - **Uniform envelope** — every response carries `success`, `timestamp_unix`, and `timestamp_iso8601`, plus `data`, `version` (the Cloud Run revision), or `error` as appropriate.
 - **Header authorization** — optionally require a header key/value before running your handler.
 - **CORS + caching** — `Access-Control-*`, `Vary`, `Cache-Control`, and `Surrogate-Control` headers derived from config.
-- **Safe error handling** — user-friendly exceptions surface their message; anything else returns a generic error unless `DEBUG` is on.
+- **Safe error handling** — user-friendly exceptions surface their message; anything else returns a generic error unless `DEBUG` is on, and is logged to stderr either way.
 
 
 
@@ -146,7 +146,7 @@ An error response omits `data` and adds `error`:
 
 ## :rotating_light: Error handling
 
-Inside your `DataProviderInterface::getData()`, throwing an exception that implements [`christianjbrown/user-friendly-exception`](https://github.com/christianjbrown/user-friendly-exception-php)'s `UserFriendlyExceptionInterface` returns its message to the client (HTTP 500). Any other `Throwable` returns a generic `"An unhandled error occurred"` message — unless `DEBUG` is enabled, in which case the raw message is returned to aid debugging. A failed authorization check short-circuits with `"Not authorized"` (HTTP 401) before your handler runs.
+Inside your `DataProviderInterface::getData()`, throwing an exception that implements [`christianjbrown/user-friendly-exception`](https://github.com/christianjbrown/user-friendly-exception-php)'s `UserFriendlyExceptionInterface` returns its message to the client (HTTP 500). Any other `Throwable` returns a generic `"An unhandled error occurred"` message — unless `DEBUG` is enabled, in which case the raw message is returned to aid debugging. In both cases the `Throwable` is written to stderr with `error_log()`, so the cause is kept in Cloud Logging against the failing request rather than discarded with the response. A failed authorization check short-circuits with `"Not authorized"` (HTTP 401) before your handler runs.
 
 ## :page_facing_up: License
 

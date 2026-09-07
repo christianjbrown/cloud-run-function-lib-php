@@ -47,7 +47,9 @@ Everything lives directly under `src/` (no sub-layers). PSR-4: `ChristianBrown\C
   `DataProviderInterface` + `FunctionConfigInterface`. Its `run()` checks header authorization
   (returns a `JsonErrorResponse` 401 if it fails), calls `getData()`, and wraps the result in a
   `JsonSuccessResponse`. It catches `UserFriendlyExceptionInterface` (returns the message) and any
-  other `Throwable` (returns the raw message only when `DEBUG` is on, otherwise a generic error).
+  other `Throwable` (returns the raw message only when `DEBUG` is on, otherwise a generic error);
+  either way the `Throwable` is written to stderr with `error_log()`, so Cloud Logging holds the
+  cause even though the response hides it.
 - **`DataProviderInterface`** — the single method a consumer implements:
   `getData(ServerRequestInterface): array`.
 - **`FunctionConfig`** / **`FunctionConfigInterface`** — a mutable settings object (fluent setters)

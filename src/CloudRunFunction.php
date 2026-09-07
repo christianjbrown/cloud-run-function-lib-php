@@ -8,6 +8,7 @@ use ChristianBrown\UserFriendlyException\UserFriendlyExceptionInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
+use function error_log;
 use function hash_equals;
 
 final class CloudRunFunction implements CloudRunFunctionInterface
@@ -38,6 +39,13 @@ final class CloudRunFunction implements CloudRunFunctionInterface
 
     private function buildUnhandledResponse(Throwable $exception, string $requestOrigin): ResponseInterface
     {
+        // This is the only branch that discards what actually went wrong: the
+        // caller gets a generic message and, with DEBUG off, the exception is
+        // otherwise never recorded anywhere. Write it to stderr so Cloud Logging
+        // keeps the cause against the failing request, giving the 5xx alert
+        // something to read.
+        error_log((string) $exception);
+
         if ($this->functionConfig->getDebug()) {
             return new JsonErrorResponse($this->functionConfig, $exception->getMessage(), JsonErrorResponseInterface::DEFAULT_ERROR_STATUS_CODE, $requestOrigin);
         }
