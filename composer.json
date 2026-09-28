@@ -15,7 +15,7 @@
         "guzzlehttp/guzzle": "^7.15"
     },
     "require-dev": {
-        "christianjbrown/code-quality-scripts": "dev-main",
+        "christianjbrown/code-quality-scripts": "^1.0",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^13.0",
         "zircote/swagger-php": "^6.4",
@@ -58,10 +58,6 @@
         }
     },
     "repositories": [
-        {
-            "type": "github",
-            "url": "git@github.com:christianjbrown/code-quality-scripts-php.git"
-        },
         {
             "type": "github",
             "url": "git@github.com:christianjbrown/user-friendly-exception-php.git"
