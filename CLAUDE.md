@@ -32,7 +32,8 @@ Style tooling comes from the `christianjbrown/code-quality-scripts` dev dependen
 and formatting via **php-cs-fixer** (`@PhpCsFixer`/`@Symfony` rule sets); the `bin/php-cs*` scripts are thin wrappers over it.
 Static analysis is **PHPStan at `level: max`** (`phpstan.neon.dist`, run with `composer stan` /
 `./bin/phpstan analyse`), and there is a **GitHub Actions CI workflow** (`.github/workflows/ci.yml`)
-that runs style, PHPStan, and the PHPUnit suite with coverage on every push/PR to `main`. Because the
+that runs style, PHPStan, and the PHPUnit suite with a 100% coverage floor on every metric on every
+push/PR to `main`. Because the
 runtime and dev dependencies are private `dev-main` GitHub packages, CI injects a `COMPOSER_AUTH`
 secret. Always run `composer fix-style` first (php-cs-fixer auto-fixes what it can), then
 `composer check-style` to surface any remaining violations that must be fixed by hand, then
