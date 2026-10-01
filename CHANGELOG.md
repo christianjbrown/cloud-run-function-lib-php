@@ -6,6 +6,8 @@ All notable changes to this package are recorded here. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-01
+
 ### Added
 
 - `CloudRunFunctionFactory`, the composition root. `create($dataProvider, $config)` builds a ready
@@ -53,5 +55,6 @@ First stable release.
 - Safe error handling: a `UserFriendlyExceptionInterface` message reaches the caller, anything else
   returns a generic error unless `DEBUG` is on, and every error is logged to stderr.
 
-[Unreleased]: https://github.com/christianjbrown/cloud-run-function-lib-php/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/christianjbrown/cloud-run-function-lib-php/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/christianjbrown/cloud-run-function-lib-php/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/christianjbrown/cloud-run-function-lib-php/releases/tag/v1.0.0
