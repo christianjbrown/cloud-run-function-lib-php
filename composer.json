@@ -12,7 +12,9 @@
     "require": {
         "php": "^8.5",
         "christianjbrown/user-friendly-exception": "^1.0",
-        "guzzlehttp/guzzle": "^7.15"
+        "guzzlehttp/guzzle": "^7.15",
+        "psr/clock": "^1.0",
+        "symfony/clock": "^8.0"
     },
     "require-dev": {
         "christianjbrown/code-quality-scripts": "^1.0",

@@ -30,25 +30,25 @@ interface FunctionConfigInterface
 
     public function getUseCacheTtl(): ?int;
 
-    public function setAllowLocalOrigins(bool $value): self;
+    public function withAllowLocalOrigins(bool $value): self;
 
-    public function setAllowUnauthenticated(bool $value): self;
+    public function withAllowUnauthenticated(bool $value): self;
 
-    public function setDebug(bool $value): self;
+    public function withDebug(bool $value): self;
 
-    public function setRequiredHeaderKey(?string $value): self;
+    public function withRequiredHeaderKey(?string $value): self;
 
-    public function setRequiredHeaderValue(?string $value): self;
+    public function withRequiredHeaderValue(?string $value): self;
 
-    public function setRequiredOrigin(?string $value): self;
+    public function withRequiredOrigin(?string $value): self;
 
-    public function setSurrogateKey(?string $value): self;
+    public function withSurrogateKey(?string $value): self;
 
-    public function setUseBrowserCacheTtl(?int $value): self;
+    public function withUseBrowserCacheTtl(?int $value): self;
 
-    public function setUseCacheButRequestTtl(?int $value): self;
+    public function withUseCacheButRequestTtl(?int $value): self;
 
-    public function setUseCacheIfErrorTtl(?int $value): self;
+    public function withUseCacheIfErrorTtl(?int $value): self;
 
-    public function setUseCacheTtl(?int $value): self;
+    public function withUseCacheTtl(?int $value): self;
 }

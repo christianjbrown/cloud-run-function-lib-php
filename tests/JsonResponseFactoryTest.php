@@ -4,68 +4,29 @@ declare(strict_types=1);
 
 namespace ChristianBrown\CloudRunFunction\Tests;
 
-use ChristianBrown\CloudRunFunction\AbstractJsonResponse;
 use ChristianBrown\CloudRunFunction\AllowOriginResolver;
 use ChristianBrown\CloudRunFunction\CacheHeaderBuilder;
 use ChristianBrown\CloudRunFunction\CorsHeaderBuilder;
 use ChristianBrown\CloudRunFunction\FunctionConfigInterface;
-use ChristianBrown\CloudRunFunction\JsonSuccessResponse;
+use ChristianBrown\CloudRunFunction\JsonResponse;
+use ChristianBrown\CloudRunFunction\JsonResponseFactory;
+use ChristianBrown\CloudRunFunction\JsonResponseFactoryInterface;
 use ChristianBrown\CloudRunFunction\ResponseBodyBuilder;
 use ChristianBrown\CloudRunFunction\ResponseInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
-#[CoversClass(AbstractJsonResponse::class)]
 #[CoversClass(AllowOriginResolver::class)]
 #[CoversClass(CacheHeaderBuilder::class)]
 #[CoversClass(CorsHeaderBuilder::class)]
+#[CoversClass(JsonResponse::class)]
+#[CoversClass(JsonResponseFactory::class)]
 #[CoversClass(ResponseBodyBuilder::class)]
-#[CoversClass(JsonSuccessResponse::class)]
-final class JsonSuccessResponseTest extends TestCase
+final class JsonResponseFactoryTest extends TestCase
 {
-    public function test(): void
-    {
-        $functionConfig = self::createStub(FunctionConfigInterface::class);
-        $functionConfig->method('getKrevision')
-            ->willReturn('test-krevision');
-        $functionConfig->method('getRequiredHeaderKey')
-            ->willReturn('test-header-key');
-        $functionConfig->method('getRequiredOrigin')
-            ->willReturn('test-origin');
-        $functionConfig->method('getUseCacheTtl')
-            ->willReturn(3600);
-        $functionConfig->method('getUseCacheButRequestTtl')
-            ->willReturn(7200);
-        $functionConfig->method('getUseCacheIfErrorTtl')
-            ->willReturn(259200);
-
-        $jsonResponse = new JsonSuccessResponse($functionConfig, ['test-data'], 123);
-
-        self::assertSame(123, $jsonResponse->getStatusCode());
-        self::assertSame('application/json; charset=utf-8', $jsonResponse->getHeaderLine('Content-Type'));
-        self::assertSame('test-origin', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_ALLOW_ORIGIN));
-        self::assertSame('Accept-Encoding,Origin,test-header-key', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_VARY));
-        self::assertSame('s-maxage=3600, max-age=3600, stale-while-revalidate=7200, stale-if-error=259200', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_CACHE_CONTROL));
-        self::assertSame('max-age=3600, stale-while-revalidate=7200, stale-if-error=259200', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_SURROGATE_CONTROL));
-
-        $json = json_decode($jsonResponse->getBody()->getContents(), true);
-
-        self::assertIsArray($json);
-        self::assertArrayNotHasKey('error', $json);
-        self::assertArrayHasKey('data', $json);
-        self::assertArrayHasKey('success', $json);
-        self::assertArrayHasKey('timestamp_iso8601', $json);
-        self::assertArrayHasKey('timestamp_unix', $json);
-        self::assertArrayHasKey('version', $json);
-
-        self::assertSame(['test-data'], $json['data']);
-        self::assertTrue($json['success']);
-        self::assertIsString($json['timestamp_iso8601']);
-        self::assertMatchesRegularExpression('#\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00#', $json['timestamp_iso8601']);
-        self::assertIsInt($json['timestamp_unix']);
-        self::assertSame('test-krevision', $json['version']);
-    }
+    private const string NOW = '2026-07-15 12:00:00 UTC';
 
     public function testEmptyRequiredOrigin(): void
     {
@@ -81,12 +42,86 @@ final class JsonSuccessResponseTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $jsonResponse = new JsonSuccessResponse($functionConfig, ['test-data'], 200);
+        $jsonResponse = $this->factory()->success($functionConfig, ['test-data'], 200);
 
         self::assertSame('', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_ALLOW_ORIGIN));
         self::assertSame('', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_VARY));
         self::assertSame('s-maxage=3600, max-age=3600, stale-while-revalidate=7200, stale-if-error=259200', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_CACHE_CONTROL));
         self::assertSame('max-age=3600, stale-while-revalidate=7200, stale-if-error=259200', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_SURROGATE_CONTROL));
+    }
+
+    public function testError(): void
+    {
+        $functionConfig = self::createStub(FunctionConfigInterface::class);
+        $functionConfig->method('getKrevision')
+            ->willReturn('test-krevision');
+        $functionConfig->method('getRequiredHeaderKey')
+            ->willReturn('test-header-key');
+        $functionConfig->method('getRequiredOrigin')
+            ->willReturn('test-origin');
+
+        $jsonResponse = $this->factory()->error($functionConfig, 'test-error', 123);
+
+        self::assertSame(123, $jsonResponse->getStatusCode());
+        self::assertSame('application/json; charset=utf-8', $jsonResponse->getHeaderLine('Content-Type'));
+        self::assertSame('test-origin', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_ALLOW_ORIGIN));
+        self::assertSame('Accept-Encoding,Origin,test-header-key', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_VARY));
+        self::assertSame('', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_CACHE_CONTROL));
+        self::assertSame('', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_SURROGATE_CONTROL));
+
+        $json = json_decode($jsonResponse->getBody()->getContents(), true);
+
+        self::assertIsArray($json);
+        self::assertArrayHasKey('error', $json);
+        self::assertArrayNotHasKey('data', $json);
+        self::assertArrayHasKey('success', $json);
+        self::assertArrayHasKey('timestamp_iso8601', $json);
+        self::assertArrayHasKey('timestamp_unix', $json);
+        self::assertArrayHasKey('version', $json);
+
+        self::assertSame('test-error', $json['error']);
+        self::assertFalse($json['success']);
+        self::assertIsString($json['timestamp_iso8601']);
+        self::assertMatchesRegularExpression('#\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00#', $json['timestamp_iso8601']);
+        self::assertIsInt($json['timestamp_unix']);
+        self::assertSame('test-krevision', $json['version']);
+    }
+
+    public function testErrorJsonEncodingFailure(): void
+    {
+        $functionConfig = self::createStub(FunctionConfigInterface::class);
+        $functionConfig->method('getKrevision')
+            ->willReturn('test-krevision');
+        $functionConfig->method('getRequiredHeaderKey')
+            ->willReturn('test-header-key');
+        $functionConfig->method('getRequiredOrigin')
+            ->willReturn('test-origin');
+
+        $jsonResponse = $this->factory()->error($functionConfig, "\xC3\x28", 123);
+
+        self::assertSame(500, $jsonResponse->getStatusCode());
+        self::assertSame('application/json; charset=utf-8', $jsonResponse->getHeaderLine('Content-Type'));
+        self::assertSame('test-origin', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_ALLOW_ORIGIN));
+        self::assertSame('Accept-Encoding,Origin,test-header-key', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_VARY));
+        self::assertSame('', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_CACHE_CONTROL));
+        self::assertSame('', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_SURROGATE_CONTROL));
+
+        $json = json_decode($jsonResponse->getBody()->getContents(), true);
+
+        self::assertIsArray($json);
+        self::assertArrayHasKey('error', $json);
+        self::assertArrayNotHasKey('data', $json);
+        self::assertArrayHasKey('success', $json);
+        self::assertArrayHasKey('timestamp_iso8601', $json);
+        self::assertArrayHasKey('timestamp_unix', $json);
+        self::assertArrayHasKey('version', $json);
+
+        self::assertSame(ResponseInterface::ERROR_JSON_ENCODING, $json['error']);
+        self::assertFalse($json['success']);
+        self::assertIsString($json['timestamp_iso8601']);
+        self::assertMatchesRegularExpression('#\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00#', $json['timestamp_iso8601']);
+        self::assertIsInt($json['timestamp_unix']);
+        self::assertSame('test-krevision', $json['version']);
     }
 
     public function testJsonError(): void
@@ -105,7 +140,7 @@ final class JsonSuccessResponseTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $jsonResponse = new JsonSuccessResponse($functionConfig, ["\xC3\x28"], 123);
+        $jsonResponse = $this->factory()->success($functionConfig, ["\xC3\x28"], 123);
 
         self::assertSame(500, $jsonResponse->getStatusCode());
         self::assertSame('application/json; charset=utf-8', $jsonResponse->getHeaderLine('Content-Type'));
@@ -142,7 +177,7 @@ final class JsonSuccessResponseTest extends TestCase
         $functionConfig->method('getRequiredOrigin')
             ->willReturn('test-origin');
 
-        $jsonResponse = new JsonSuccessResponse($functionConfig, ['test-data'], 200);
+        $jsonResponse = $this->factory()->success($functionConfig, ['test-data'], 200);
 
         self::assertSame('test-origin', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_ALLOW_ORIGIN));
         self::assertSame('Accept-Encoding,Origin,test-header-key', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_VARY));
@@ -157,7 +192,7 @@ final class JsonSuccessResponseTest extends TestCase
 
     public function testNoFunctionConfig(): void
     {
-        $jsonResponse = new JsonSuccessResponse(null, ['test-data'], 123);
+        $jsonResponse = $this->factory()->success(null, ['test-data'], 123);
 
         self::assertSame(123, $jsonResponse->getStatusCode());
         self::assertSame('application/json; charset=utf-8', $jsonResponse->getHeaderLine('Content-Type'));
@@ -202,7 +237,7 @@ final class JsonSuccessResponseTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $jsonResponse = new JsonSuccessResponse($functionConfig, ['test-data'], 200, $requestOrigin);
+        $jsonResponse = $this->factory()->success($functionConfig, ['test-data'], 200, $requestOrigin);
 
         self::assertSame($expectedAllowOrigin, $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_ALLOW_ORIGIN));
         self::assertSame('Accept-Encoding,Origin,test-header-key', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_VARY));
@@ -226,5 +261,69 @@ final class JsonSuccessResponseTest extends TestCase
         // With debug off (production), the configured origin is always pinned, never reflected.
         yield 'no-debug localhost pinned' => [false, 'http://localhost:3000', 'test-origin'];
         yield 'no-debug non-localhost pinned' => [false, 'https://app.example.com', 'test-origin'];
+    }
+
+    public function testSuccess(): void
+    {
+        $functionConfig = self::createStub(FunctionConfigInterface::class);
+        $functionConfig->method('getKrevision')
+            ->willReturn('test-krevision');
+        $functionConfig->method('getRequiredHeaderKey')
+            ->willReturn('test-header-key');
+        $functionConfig->method('getRequiredOrigin')
+            ->willReturn('test-origin');
+        $functionConfig->method('getUseCacheTtl')
+            ->willReturn(3600);
+        $functionConfig->method('getUseCacheButRequestTtl')
+            ->willReturn(7200);
+        $functionConfig->method('getUseCacheIfErrorTtl')
+            ->willReturn(259200);
+
+        $jsonResponse = $this->factory()->success($functionConfig, ['test-data'], 123);
+
+        self::assertSame(123, $jsonResponse->getStatusCode());
+        self::assertSame('application/json; charset=utf-8', $jsonResponse->getHeaderLine('Content-Type'));
+        self::assertSame('test-origin', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_ALLOW_ORIGIN));
+        self::assertSame('Accept-Encoding,Origin,test-header-key', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_VARY));
+        self::assertSame('s-maxage=3600, max-age=3600, stale-while-revalidate=7200, stale-if-error=259200', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_CACHE_CONTROL));
+        self::assertSame('max-age=3600, stale-while-revalidate=7200, stale-if-error=259200', $jsonResponse->getHeaderLine(ResponseInterface::HEADER_KEY_SURROGATE_CONTROL));
+
+        $json = json_decode($jsonResponse->getBody()->getContents(), true);
+
+        self::assertIsArray($json);
+        self::assertArrayNotHasKey('error', $json);
+        self::assertArrayHasKey('data', $json);
+        self::assertArrayHasKey('success', $json);
+        self::assertArrayHasKey('timestamp_iso8601', $json);
+        self::assertArrayHasKey('timestamp_unix', $json);
+        self::assertArrayHasKey('version', $json);
+
+        self::assertSame(['test-data'], $json['data']);
+        self::assertTrue($json['success']);
+        self::assertIsString($json['timestamp_iso8601']);
+        self::assertMatchesRegularExpression('#\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00#', $json['timestamp_iso8601']);
+        self::assertIsInt($json['timestamp_unix']);
+        self::assertSame('test-krevision', $json['version']);
+    }
+
+    public function testTimestampComesFromTheInjectedClockAtCallTime(): void
+    {
+        $clock = new MockClock(self::NOW);
+        $factory = new JsonResponseFactory(new ResponseBodyBuilder(), new CorsHeaderBuilder(new AllowOriginResolver()), new CacheHeaderBuilder(), $clock);
+
+        $first = json_decode((string) $factory->success(null)->getBody(), true);
+        $clock->sleep(60);
+        $second = json_decode((string) $factory->error(null, 'x')->getBody(), true);
+
+        self::assertIsArray($first);
+        self::assertIsArray($second);
+        self::assertSame(1784116800, $first['timestamp_unix']);
+        self::assertSame('2026-07-15T12:00:00+00:00', $first['timestamp_iso8601']);
+        self::assertSame(1784116860, $second['timestamp_unix']);
+    }
+
+    private function factory(): JsonResponseFactoryInterface
+    {
+        return new JsonResponseFactory(new ResponseBodyBuilder(), new CorsHeaderBuilder(new AllowOriginResolver()), new CacheHeaderBuilder(), new MockClock(self::NOW));
     }
 }

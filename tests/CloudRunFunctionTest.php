@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace ChristianBrown\CloudRunFunction\Tests;
 
-use ChristianBrown\CloudRunFunction\AbstractJsonResponse;
 use ChristianBrown\CloudRunFunction\AllowOriginResolver;
 use ChristianBrown\CloudRunFunction\BadRequestException;
 use ChristianBrown\CloudRunFunction\CacheHeaderBuilder;
 use ChristianBrown\CloudRunFunction\CloudRunFunction;
+use ChristianBrown\CloudRunFunction\CloudRunFunctionFactory;
 use ChristianBrown\CloudRunFunction\CloudRunFunctionInterface;
 use ChristianBrown\CloudRunFunction\CorsHeaderBuilder;
 use ChristianBrown\CloudRunFunction\DataProviderInterface;
 use ChristianBrown\CloudRunFunction\FunctionConfigInterface;
-use ChristianBrown\CloudRunFunction\JsonErrorResponse;
-use ChristianBrown\CloudRunFunction\JsonErrorResponseInterface;
-use ChristianBrown\CloudRunFunction\JsonSuccessResponse;
-use ChristianBrown\CloudRunFunction\JsonSuccessResponseInterface;
+use ChristianBrown\CloudRunFunction\HeaderRequestAuthorizer;
+use ChristianBrown\CloudRunFunction\JsonResponse;
+use ChristianBrown\CloudRunFunction\JsonResponseFactory;
 use ChristianBrown\CloudRunFunction\ResponseBodyBuilder;
 use ChristianBrown\CloudRunFunction\ResponseInterface;
 use ChristianBrown\UserFriendlyException\UserFriendlyException;
@@ -33,9 +32,10 @@ use function sys_get_temp_dir;
 use function tempnam;
 use function unlink;
 
-#[CoversClass(JsonSuccessResponse::class)]
-#[CoversClass(JsonErrorResponse::class)]
-#[CoversClass(AbstractJsonResponse::class)]
+#[CoversClass(JsonResponse::class)]
+#[CoversClass(JsonResponseFactory::class)]
+#[CoversClass(HeaderRequestAuthorizer::class)]
+#[CoversClass(CloudRunFunctionFactory::class)]
 #[CoversClass(AllowOriginResolver::class)]
 #[CoversClass(CacheHeaderBuilder::class)]
 #[CoversClass(CorsHeaderBuilder::class)]
@@ -84,7 +84,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -121,7 +121,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -151,7 +151,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getKrevision')
             ->willReturn('test-krevision');
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -177,7 +177,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getKrevision')
             ->willReturn('test-krevision');
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -218,7 +218,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -262,7 +262,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -310,7 +310,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         // run() logs the cause via error_log() for Cloud Logging; divert it to a temp
         // file so the strict-output check does not see it as unexpected output, and so
@@ -371,7 +371,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -414,7 +414,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -446,7 +446,7 @@ final class CloudRunFunctionTest extends TestCase
         $functionConfig->method('getUseCacheIfErrorTtl')
             ->willReturn(259200);
 
-        $cloudFunction = new CloudRunFunction($dataProvider, $functionConfig);
+        $cloudFunction = (new CloudRunFunctionFactory())->create($dataProvider, $functionConfig);
 
         $actual = $cloudFunction->run($request);
 
@@ -455,7 +455,7 @@ final class CloudRunFunctionTest extends TestCase
 
     private static function assertResponseError(ResponseInterface $response, string $expectedError, int $statusCode, ?string $expectedOrigin, ?string $expectedVary, ?string $expectedVersion = 'test-krevision'): void
     {
-        self::assertInstanceOf(JsonErrorResponseInterface::class, $response);
+        self::assertInstanceOf(JsonResponse::class, $response);
 
         self::assertSame($statusCode, $response->getStatusCode());
         self::assertSame('application/json; charset=utf-8', $response->getHeaderLine('Content-Type'));
@@ -491,7 +491,7 @@ final class CloudRunFunctionTest extends TestCase
      */
     private static function assertResponseSuccess(ResponseInterface $response, array $expectedData, int $statusCode, ?string $expectedOrigin, ?string $expectedVary, ?string $expectedVersion = 'test-krevision'): void
     {
-        self::assertInstanceOf(JsonSuccessResponseInterface::class, $response);
+        self::assertInstanceOf(JsonResponse::class, $response);
 
         self::assertSame($statusCode, $response->getStatusCode());
         self::assertSame('application/json; charset=utf-8', $response->getHeaderLine('Content-Type'));

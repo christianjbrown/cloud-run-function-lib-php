@@ -4,15 +4,41 @@ declare(strict_types=1);
 
 namespace ChristianBrown\CloudRunFunction\Tests;
 
+use ChristianBrown\CloudRunFunction\AllowLocalOriginsApplier;
+use ChristianBrown\CloudRunFunction\AllowUnauthenticatedApplier;
+use ChristianBrown\CloudRunFunction\CloudRunFunctionFactory;
+use ChristianBrown\CloudRunFunction\DebugApplier;
 use ChristianBrown\CloudRunFunction\FunctionConfig;
+use ChristianBrown\CloudRunFunction\FunctionConfigApplierInterface;
+use ChristianBrown\CloudRunFunction\FunctionConfigInterface;
 use ChristianBrown\CloudRunFunction\FunctionConfigTransformer;
 use ChristianBrown\CloudRunFunction\FunctionConfigTransformerInterface;
+use ChristianBrown\CloudRunFunction\RequiredHeaderKeyApplier;
+use ChristianBrown\CloudRunFunction\RequiredHeaderValueApplier;
+use ChristianBrown\CloudRunFunction\RequiredOriginApplier;
+use ChristianBrown\CloudRunFunction\SurrogateKeyApplier;
+use ChristianBrown\CloudRunFunction\UseBrowserCacheTtlApplier;
+use ChristianBrown\CloudRunFunction\UseCacheButRequestTtlApplier;
+use ChristianBrown\CloudRunFunction\UseCacheIfErrorTtlApplier;
+use ChristianBrown\CloudRunFunction\UseCacheTtlApplier;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 #[CoversClass(FunctionConfig::class)]
+#[CoversClass(CloudRunFunctionFactory::class)]
+#[CoversClass(AllowLocalOriginsApplier::class)]
+#[CoversClass(AllowUnauthenticatedApplier::class)]
+#[CoversClass(DebugApplier::class)]
+#[CoversClass(RequiredHeaderKeyApplier::class)]
+#[CoversClass(RequiredHeaderValueApplier::class)]
+#[CoversClass(RequiredOriginApplier::class)]
+#[CoversClass(SurrogateKeyApplier::class)]
+#[CoversClass(UseBrowserCacheTtlApplier::class)]
+#[CoversClass(UseCacheTtlApplier::class)]
+#[CoversClass(UseCacheButRequestTtlApplier::class)]
+#[CoversClass(UseCacheIfErrorTtlApplier::class)]
 #[CoversClass(FunctionConfigTransformer::class)]
 final class FunctionConfigTransformerTest extends TestCase
 {
@@ -34,7 +60,7 @@ final class FunctionConfigTransformerTest extends TestCase
             FunctionConfigTransformerInterface::ENV_USE_CACHE_BUT_REQUEST_TTL => '7200',
             FunctionConfigTransformerInterface::ENV_USE_CACHE_IF_ERROR_TTL => '259200',
         ];
-        $transformer = new FunctionConfigTransformer();
+        $transformer = (new CloudRunFunctionFactory())->createConfigTransformer();
         $actual = $transformer->transform($env);
         self::assertSame('test-krevision', $actual->getKrevision());
         self::assertTrue($actual->getAllowLocalOrigins());
@@ -52,6 +78,18 @@ final class FunctionConfigTransformerTest extends TestCase
         self::assertSame(259200, $actual->getUseCacheIfErrorTtl());
     }
 
+    public function testEveryRegisteredApplierRuns(): void
+    {
+        $applier = self::createMock(FunctionConfigApplierInterface::class);
+        $applier->expects(self::once())
+            ->method('apply')
+            ->willReturnCallback(static fn (FunctionConfigInterface $config): FunctionConfigInterface => $config->withDebug(true));
+
+        $actual = (new FunctionConfigTransformer([$applier]))->transform([FunctionConfigTransformerInterface::ENV_K_REVISION => 'test-krevision']);
+
+        self::assertTrue($actual->getDebug());
+    }
+
     #[TestWith([null])]
     #[TestWith([''])]
     #[TestWith([123])]
@@ -60,7 +98,7 @@ final class FunctionConfigTransformerTest extends TestCase
         $env = [
             FunctionConfigTransformerInterface::ENV_K_REVISION => $value,
         ];
-        $transformer = new FunctionConfigTransformer();
+        $transformer = (new CloudRunFunctionFactory())->createConfigTransformer();
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage(sprintf('%s not set or not a string', FunctionConfigTransformerInterface::ENV_K_REVISION));
         $transformer->transform($env);
@@ -71,7 +109,7 @@ final class FunctionConfigTransformerTest extends TestCase
         $env = [
             FunctionConfigTransformerInterface::ENV_K_REVISION => 'test-krevision',
         ];
-        $transformer = new FunctionConfigTransformer();
+        $transformer = (new CloudRunFunctionFactory())->createConfigTransformer();
         $actual = $transformer->transform($env);
         self::assertSame('test-krevision', $actual->getKrevision());
         self::assertFalse($actual->getAllowLocalOrigins());
@@ -85,6 +123,21 @@ final class FunctionConfigTransformerTest extends TestCase
         self::assertNull($actual->getUseBrowserCacheTtl());
         self::assertNull($actual->getUseCacheButRequestTtl());
         self::assertNull($actual->getUseCacheIfErrorTtl());
+    }
+
+    public function testMissingKRevisionThrows(): void
+    {
+        $this->expectException(RuntimeException::class);
+
+        (new FunctionConfigTransformer([]))->transform([]);
+    }
+
+    public function testNoAppliersLeavesTheDefaults(): void
+    {
+        $actual = (new FunctionConfigTransformer([]))->transform([FunctionConfigTransformerInterface::ENV_K_REVISION => 'test-krevision']);
+
+        self::assertSame('test-krevision', $actual->getKrevision());
+        self::assertFalse($actual->getDebug());
     }
 
     public function testNonStringOptionalsAreIgnored(): void
@@ -103,7 +156,7 @@ final class FunctionConfigTransformerTest extends TestCase
             FunctionConfigTransformerInterface::ENV_USE_CACHE_BUT_REQUEST_TTL => 'not-numeric',
             FunctionConfigTransformerInterface::ENV_USE_CACHE_IF_ERROR_TTL => 'not-numeric',
         ];
-        $transformer = new FunctionConfigTransformer();
+        $transformer = (new CloudRunFunctionFactory())->createConfigTransformer();
         $actual = $transformer->transform($env);
         self::assertSame('test-krevision', $actual->getKrevision());
         self::assertFalse($actual->getAllowLocalOrigins());
@@ -117,5 +170,20 @@ final class FunctionConfigTransformerTest extends TestCase
         self::assertNull($actual->getUseBrowserCacheTtl());
         self::assertNull($actual->getUseCacheButRequestTtl());
         self::assertNull($actual->getUseCacheIfErrorTtl());
+    }
+
+    public function testTwoAppliersRunInOrder(): void
+    {
+        $first = self::createStub(FunctionConfigApplierInterface::class);
+        $first->method('apply')
+            ->willReturnCallback(static fn (FunctionConfigInterface $config): FunctionConfigInterface => $config->withDebug(true));
+        $second = self::createStub(FunctionConfigApplierInterface::class);
+        $second->method('apply')
+            ->willReturnCallback(static fn (FunctionConfigInterface $config): FunctionConfigInterface => $config->withSurrogateKey('key'));
+
+        $actual = (new FunctionConfigTransformer([$first, $second]))->transform([FunctionConfigTransformerInterface::ENV_K_REVISION => 'test-krevision']);
+
+        self::assertTrue($actual->getDebug());
+        self::assertSame('key', $actual->getSurrogateKey());
     }
 }
