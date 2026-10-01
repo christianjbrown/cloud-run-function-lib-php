@@ -1,6 +1,6 @@
 # Google Cloud Run Function framework
 
-[![CI](https://github.com/christianjbrown/cloud-run-function-lib-php/actions/workflows/ci.yml/badge.svg)](https://github.com/christianjbrown/cloud-run-function-lib-php/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/christianjbrown/cloud-run-function-lib-php)](https://github.com/christianjbrown/cloud-run-function-lib-php/blob/main/LICENSE) [![PHP](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fchristianjbrown%2Fcloud-run-function-lib-php%2Fmain%2Fcomposer.json&query=%24.require.php&label=php&color=777BB4)](https://github.com/christianjbrown/cloud-run-function-lib-php/blob/main/composer.json)
+[![CI](https://github.com/christianjbrown/cloud-run-function-lib-php/actions/workflows/ci.yml/badge.svg)](https://github.com/christianjbrown/cloud-run-function-lib-php/actions/workflows/ci.yml) [![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://github.com/christianjbrown/cloud-run-function-lib-php/actions/workflows/ci.yml) [![Packagist](https://img.shields.io/packagist/v/christianjbrown/cloud-run-function-lib)](https://packagist.org/packages/christianjbrown/cloud-run-function-lib) [![License](https://img.shields.io/packagist/l/christianjbrown/cloud-run-function-lib)](https://github.com/christianjbrown/cloud-run-function-lib-php/blob/main/LICENSE) [![PHP](https://img.shields.io/packagist/dependency-v/christianjbrown/cloud-run-function-lib/php)](https://packagist.org/packages/christianjbrown/cloud-run-function-lib)
 
 A strongly-typed PHP framework for building [Google Cloud Run function](https://cloud.google.com/run) HTTP endpoints that return a **consistent JSON envelope**. You write the business logic; the library handles header-based authorization, CORS, CDN cache-control headers, and uniform success/error responses.
 
@@ -147,6 +147,12 @@ An error response omits `data` and adds `error`:
 ## :rotating_light: Error handling
 
 Inside your `DataProviderInterface::getData()`, throwing an exception that implements [`christianjbrown/user-friendly-exception`](https://github.com/christianjbrown/user-friendly-exception-php)'s `UserFriendlyExceptionInterface` returns its message to the client (HTTP 500). Any other `Throwable` returns a generic `"An unhandled error occurred"` message — unless `DEBUG` is enabled, in which case the raw message is returned to aid debugging. In both cases the `Throwable` is written to stderr with `error_log()`, so the cause is kept in Cloud Logging against the failing request rather than discarded with the response. A failed authorization check short-circuits with `"Not authorized"` (HTTP 401) before your handler runs.
+
+## :memo: Changelog
+
+Notable changes in each release are listed in [CHANGELOG.md](CHANGELOG.md).
+
+
 
 ## :page_facing_up: License
 

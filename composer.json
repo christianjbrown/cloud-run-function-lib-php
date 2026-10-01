@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": "^8.5",
-        "christianjbrown/user-friendly-exception": "dev-main",
+        "christianjbrown/user-friendly-exception": "^1.0",
         "guzzlehttp/guzzle": "^7.15"
     },
     "require-dev": {
@@ -56,11 +56,5 @@
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true
         }
-    },
-    "repositories": [
-        {
-            "type": "github",
-            "url": "git@github.com:christianjbrown/user-friendly-exception-php.git"
-        }
-    ]
+    }
 }
