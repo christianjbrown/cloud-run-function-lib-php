@@ -28,28 +28,34 @@ final class FunctionConfigTest extends TestCase
         self::assertNull($functionConfig->getUseCacheButRequestTtl());
         self::assertNull($functionConfig->getUseCacheIfErrorTtl());
 
-        $functionConfig->setAllowLocalOrigins(true);
-        $functionConfig->setAllowUnauthenticated(true);
-        $functionConfig->setDebug(true);
-        $functionConfig->setRequiredHeaderKey('test-required-header-key');
-        $functionConfig->setRequiredHeaderValue('test-required-header-value');
-        $functionConfig->setRequiredOrigin('test-required-origin');
-        $functionConfig->setSurrogateKey('test-surrogate-key');
-        $functionConfig->setUseCacheTtl(3600);
-        $functionConfig->setUseBrowserCacheTtl(0);
-        $functionConfig->setUseCacheButRequestTtl(7200);
-        $functionConfig->setUseCacheIfErrorTtl(259200);
+        $changed = $functionConfig
+            ->withAllowLocalOrigins(true)
+            ->withAllowUnauthenticated(true)
+            ->withDebug(true)
+            ->withRequiredHeaderKey('test-required-header-key')
+            ->withRequiredHeaderValue('test-required-header-value')
+            ->withRequiredOrigin('test-required-origin')
+            ->withSurrogateKey('test-surrogate-key')
+            ->withUseCacheTtl(3600)
+            ->withUseBrowserCacheTtl(0)
+            ->withUseCacheButRequestTtl(7200)
+            ->withUseCacheIfErrorTtl(259200);
 
-        self::assertTrue($functionConfig->getAllowLocalOrigins());
-        self::assertTrue($functionConfig->getAllowUnauthenticated());
-        self::assertTrue($functionConfig->getDebug());
-        self::assertSame('test-required-header-key', $functionConfig->getRequiredHeaderKey());
-        self::assertSame('test-required-header-value', $functionConfig->getRequiredHeaderValue());
-        self::assertSame('test-required-origin', $functionConfig->getRequiredOrigin());
-        self::assertSame('test-surrogate-key', $functionConfig->getSurrogateKey());
-        self::assertSame(3600, $functionConfig->getUseCacheTtl());
-        self::assertSame(0, $functionConfig->getUseBrowserCacheTtl());
-        self::assertSame(7200, $functionConfig->getUseCacheButRequestTtl());
-        self::assertSame(259200, $functionConfig->getUseCacheIfErrorTtl());
+        // The original is untouched: a with-er returns a new instance.
+        self::assertFalse($functionConfig->getDebug());
+        self::assertNull($functionConfig->getUseCacheTtl());
+
+        self::assertSame('test-krevision', $changed->getKrevision());
+        self::assertTrue($changed->getAllowLocalOrigins());
+        self::assertTrue($changed->getAllowUnauthenticated());
+        self::assertTrue($changed->getDebug());
+        self::assertSame('test-required-header-key', $changed->getRequiredHeaderKey());
+        self::assertSame('test-required-header-value', $changed->getRequiredHeaderValue());
+        self::assertSame('test-required-origin', $changed->getRequiredOrigin());
+        self::assertSame('test-surrogate-key', $changed->getSurrogateKey());
+        self::assertSame(3600, $changed->getUseCacheTtl());
+        self::assertSame(0, $changed->getUseBrowserCacheTtl());
+        self::assertSame(7200, $changed->getUseCacheButRequestTtl());
+        self::assertSame(259200, $changed->getUseCacheIfErrorTtl());
     }
 }

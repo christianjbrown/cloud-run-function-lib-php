@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace ChristianBrown\CloudRunFunction;
 
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 interface CloudRunFunctionInterface

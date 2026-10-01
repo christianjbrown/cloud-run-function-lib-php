@@ -55,24 +55,35 @@ final class MyDataProvider implements DataProviderInterface
 }
 ```
 
-Build a `FunctionConfig` from your Cloud Run environment variables with `FunctionConfigTransformer`, wire it into a `CloudRunFunction`, and run the request:
+Build the function with `CloudRunFunctionFactory`, which wires every default, and run the request:
 
 ```php
-use ChristianBrown\CloudRunFunction\CloudRunFunction;
-use ChristianBrown\CloudRunFunction\FunctionConfigTransformer;
+use ChristianBrown\CloudRunFunction\CloudRunFunctionFactory;
 
-$config = (new FunctionConfigTransformer())->transform($_ENV);
+$cloudFunction = (new CloudRunFunctionFactory())->createFromEnvironment(new MyDataProvider(), $_ENV);
 
-$cloudFunction = new CloudRunFunction(new MyDataProvider(), $config);
-
-$response = $cloudFunction->run($request); // Psr\Http\Message\ResponseInterface
+$response = $cloudFunction->run($request); // ChristianBrown\CloudRunFunction\ResponseInterface (PSR-7)
 ```
+
+If you need the config yourself (for example to wrap it in your own config object), build it with
+the factory's transformer and pass it to `create()`:
+
+```php
+$factory = new CloudRunFunctionFactory();
+$config = $factory->createConfigTransformer()->transform($_ENV); // FunctionConfigInterface
+$cloudFunction = $factory->create(new MyDataProvider(), $config);
+```
+
+Every collaborator (`RequestAuthorizerInterface`, `JsonResponseFactoryInterface`, the config appliers)
+is an interface injected through a constructor, so any of them can be replaced by building
+`CloudRunFunction` yourself. A new environment variable is a new `FunctionConfigApplierInterface`
+class registered in the transformer's list.
 
 `$response` is a PSR-7 response ready to emit (e.g. with `guzzlehttp/psr7`'s HTTP factories or your Cloud Run function's runtime).
 
 ### Environment variables
 
-`FunctionConfigTransformer::transform()` reads these keys (only `K_REVISION` is required — Cloud Run sets it automatically):
+`FunctionConfigTransformer::transform()` (via the factory) reads these keys (only `K_REVISION` is required — Cloud Run sets it automatically):
 
 | Variable | Purpose |
 | --- | --- |
@@ -147,6 +158,53 @@ An error response omits `data` and adds `error`:
 ## :rotating_light: Error handling
 
 Inside your `DataProviderInterface::getData()`, throwing an exception that implements [`christianjbrown/user-friendly-exception`](https://github.com/christianjbrown/user-friendly-exception-php)'s `UserFriendlyExceptionInterface` returns its message to the client (HTTP 500). Any other `Throwable` returns a generic `"An unhandled error occurred"` message — unless `DEBUG` is enabled, in which case the raw message is returned to aid debugging. In both cases the `Throwable` is written to stderr with `error_log()`, so the cause is kept in Cloud Logging against the failing request rather than discarded with the response. A failed authorization check short-circuits with `"Not authorized"` (HTTP 401) before your handler runs.
+
+## :arrow_up: Upgrading to 2.0
+
+`CloudRunFunction` no longer builds its own collaborators, `FunctionConfig` is immutable, and the
+response classes are gone. Everything is built by `CloudRunFunctionFactory`.
+
+Building the function:
+
+```php
+// 1.x
+$config = (new FunctionConfigTransformer())->transform($_ENV);
+$cloudFunction = new CloudRunFunction($dataProvider, $config);
+
+// 2.0
+$cloudFunction = (new CloudRunFunctionFactory())->createFromEnvironment($dataProvider, $_ENV);
+
+// 2.0, when you hold the config yourself
+$factory = new CloudRunFunctionFactory();
+$config = $factory->createConfigTransformer()->transform($_ENV);
+$cloudFunction = $factory->create($dataProvider, $config);
+```
+
+Building a config by hand (tests, for example):
+
+```php
+// 1.x
+$config = (new FunctionConfig('rev'))->setDebug(true)->setUseCacheTtl(60);
+
+// 2.0: with-ers return a new instance, assign the result
+$config = (new FunctionConfig('rev'))->withDebug(true)->withUseCacheTtl(60);
+```
+
+Responses:
+
+```php
+// 1.x
+new JsonSuccessResponse($config, $data, 200, $origin);
+new JsonErrorResponse($config, 'message', 500, $origin);
+
+// 2.0
+$responses = new JsonResponseFactory(new ResponseBodyBuilder(), new CorsHeaderBuilder(new AllowOriginResolver()), new CacheHeaderBuilder(), new NativeClock());
+$responses->success($config, $data, 200, $origin);
+$responses->error($config, 'message', 500, $origin);
+```
+
+`new FunctionConfigTransformer()` with no arguments no longer works: it needs its list of appliers,
+which `CloudRunFunctionFactory::createConfigTransformer()` supplies.
 
 ## :memo: Changelog
 

@@ -43,26 +43,30 @@ Packagist. Always run `composer fix-style` first (php-cs-fixer auto-fixes what i
 Everything lives directly under `src/` (no sub-layers). PSR-4: `ChristianBrown\CloudRunFunction\` →
 `src/`, `ChristianBrown\CloudRunFunction\Tests\` → `tests/`.
 
-- **`CloudRunFunction`** (`src/CloudRunFunction.php`) — the entry point. Constructed with a
-  `DataProviderInterface` + `FunctionConfigInterface`. Its `run()` checks header authorization
-  (returns a `JsonErrorResponse` 401 if it fails), calls `getData()`, and wraps the result in a
-  `JsonSuccessResponse`. It catches `UserFriendlyExceptionInterface` (returns the message) and any
-  other `Throwable` (returns the raw message only when `DEBUG` is on, otherwise a generic error);
-  either way the `Throwable` is written to stderr with `error_log()`, so Cloud Logging holds the
-  cause even though the response hides it.
-- **`DataProviderInterface`** — the single method a consumer implements:
+- **`CloudRunFunctionFactory`** / **`CloudRunFunctionFactoryInterface`** - the composition root and the
+  only place that `new`s collaborators. `create($dataProvider, $config)`, `createConfigTransformer()`
+  and `createFromEnvironment($dataProvider, $env)`. A new environment variable is registered here.
+- **`CloudRunFunction`** (`src/CloudRunFunction.php`) - the entry point. Constructed with a
+  `DataProviderInterface`, `FunctionConfigInterface`, `RequestAuthorizerInterface` and
+  `JsonResponseFactoryInterface`. Its `run()` asks the authorizer (a 401 error response if refused),
+  calls `getData()`, and wraps the result in a success response. It catches
+  `UserFriendlyExceptionInterface` (returns the message) and any other `Throwable` (returns the raw
+  message only when `DEBUG` is on, otherwise a generic error); either way the `Throwable` is written
+  to stderr with `error_log()`, so Cloud Logging holds the cause even though the response hides it.
+- **`RequestAuthorizerInterface`** / **`HeaderRequestAuthorizer`** - the authorization policy
+  (required header key/value, fail closed on a partial gate, `ALLOW_UNAUTHENTICATED` opt-out).
+- **`DataProviderInterface`** - the single method a consumer implements:
   `getData(ServerRequestInterface): array`.
-- **`FunctionConfig`** / **`FunctionConfigInterface`** — a mutable settings object (fluent setters)
-  holding the revision, debug flag, required header key/value, required origin, and four cache TTLs.
-- **`FunctionConfigTransformer`** / **`FunctionConfigTransformerInterface`** — builds a
-  `FunctionConfig` from an environment-variable array (`K_REVISION` required; the rest optional),
-  with `ENV_*` key constants on the interface.
-- **`AbstractJsonResponse`** + **`JsonSuccessResponse`** / **`JsonErrorResponse`** — produce the
-  standardized JSON envelope. `AbstractJsonResponse` is now a **thin orchestrator**: its constructor
-  composes four single-responsibility collaborators (below), then hands the body + headers to Guzzle's
-  PSR-7 `Response`. The two concrete responses are the same frozen public constructors as before.
-  **Note:** `AbstractJsonResponse` is the one deliberate exception to the "no abstract base classes"
-  convention below — it extends Guzzle's PSR-7 `Response` and wires the collaborators.
+- **`FunctionConfig`** / **`FunctionConfigInterface`** - an immutable settings object. `withX()`
+  returns a new instance (via clone-with); getters read the revision, debug flag, required header
+  key/value, required origin, and four cache TTLs.
+- **`FunctionConfigTransformer`** / **`FunctionConfigTransformerInterface`** - checks `K_REVISION`
+  (required), then folds an injected iterable of **`FunctionConfigApplierInterface`** over a new
+  `FunctionConfig`. There is one small applier class per environment variable (`DebugApplier`,
+  `UseCacheTtlApplier` and so on); `ENV_*` key constants live on the transformer interface.
+- **`JsonResponseFactory`** / **`JsonResponseFactoryInterface`** - `success()` and `error()` build the
+  standardized JSON envelope by composing four injected collaborators (below, plus a PSR-20 clock for
+  the timestamp) and returning a `JsonResponse`, a data-only Guzzle `Response`.
 - **`ResponseBodyBuilder` / `ResponseBodyBuilderInterface`** — `build()` assembles the body array
   (success flag, timestamps, optional data/version/error, `ksort`ed); `encode()` serializes it and, if
   JSON encoding throws, falls back to a 500 body with `ERROR_JSON_ENCODING`.
@@ -84,18 +88,19 @@ Everything lives directly under `src/` (no sub-layers). PSR-4: `ChristianBrown\C
 
 - `declare(strict_types=1);` on every file, immediately after `<?php`.
 - **Every concrete class is `final` and implements a matching `...Interface`** in the same namespace
-  (`CloudRunFunction`/`CloudRunFunctionInterface`, `FunctionConfig`/`FunctionConfigInterface`). The only
-  abstract class is `AbstractJsonResponse` (see the note above); otherwise prefer composition.
+  (`CloudRunFunction`/`CloudRunFunctionInterface`, `FunctionConfig`/`FunctionConfigInterface`). There are no
+  abstract classes; prefer composition, and take every collaborator through the constructor.
 - **Constants live on the interface, not the class**: env-var keys (`ENV_*`), header names/values,
   response body keys (`RESPONSE_API_KEY_*`), and error messages (`ERROR_*`) — all typed constants
   (`public const string ...`, `public const int ...`, `public const array ...`).
-- **No constructor property promotion** — declare typed `private` properties and assign them in the
-  constructor body. Class members (properties then methods) are ordered **alphabetically**.
+- Collaborators are injected as `private readonly` promoted constructor properties; never `new` one
+  inside a class (only `CloudRunFunctionFactory` does) and never use a nullable collaborator with a
+  default. Class members (properties then methods) are ordered **alphabetically**.
 - Import functions and constants explicitly with `use function sprintf;` / `use const JSON_THROW_ON_ERROR;`
   (after class imports, blank line between groups), and call them unqualified.
 - **Config**: required fields are constructor args; optionals default to `null`/`false`. Getters
-  `getX()`; fluent setters `setX($value)` (param literally `$value`) that `return $this` typed as
-  the **interface**. No enums, no `readonly`, no immutability.
+  `getX()`; `withX($value)` (param literally `$value`) returns a new instance typed as the
+  **interface**. No enums, no mutation.
 - Arrays crossing a public boundary carry a `@param mixed[]` / `@return mixed[]` docblock so PHPStan
   `level: max` is satisfied (the payload can be a list or a map, so `mixed[]`, not
   `array<string, mixed>`).
@@ -110,7 +115,7 @@ The `phpunit.xml` config is strict (`requireCoverageMetadata`, `beStrictAboutCov
 
 - **Coverage must stay at 100%** — line, path, method/function, and branch. Every code path,
   including each defensive guard (e.g. the `instanceof FunctionConfigInterface` guards in
-  `AbstractJsonResponse`) and every optional cache-header combination, must be exercised. **Always
+  the header builders) and every optional cache-header combination, must be exercised. **Always
   run `composer test` and check the coverage report** before finishing — it prints a text summary to
   stdout and writes HTML to `.phpunit.cache/code-coverage-html/index.html`. New code without full
   coverage is not done.

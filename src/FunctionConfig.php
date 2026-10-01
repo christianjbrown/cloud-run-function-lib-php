@@ -6,22 +6,20 @@ namespace ChristianBrown\CloudRunFunction;
 
 final class FunctionConfig implements FunctionConfigInterface
 {
-    private bool $allowLocalOrigins = false;
-    private bool $allowUnauthenticated = false;
-    private bool $debug = false;
-    private string $kRevision;
-    private ?string $requiredHeaderKey = null;
-    private ?string $requiredHeaderValue = null;
-    private ?string $requiredOrigin = null;
-    private ?string $surrogateKey = null;
-    private ?int $useBrowserCacheTtl = null;
-    private ?int $useCacheButRequestTtl = null;
-    private ?int $useCacheIfErrorTtl = null;
-    private ?int $useCacheTtl = null;
-
-    public function __construct(string $kRevision)
-    {
-        $this->kRevision = $kRevision;
+    public function __construct(
+        private readonly string $kRevision,
+        private readonly bool $allowLocalOrigins = false,
+        private readonly bool $allowUnauthenticated = false,
+        private readonly bool $debug = false,
+        private readonly ?string $requiredHeaderKey = null,
+        private readonly ?string $requiredHeaderValue = null,
+        private readonly ?string $requiredOrigin = null,
+        private readonly ?string $surrogateKey = null,
+        private readonly ?int $useBrowserCacheTtl = null,
+        private readonly ?int $useCacheButRequestTtl = null,
+        private readonly ?int $useCacheIfErrorTtl = null,
+        private readonly ?int $useCacheTtl = null,
+    ) {
     }
 
     public function getAllowLocalOrigins(): bool
@@ -84,80 +82,58 @@ final class FunctionConfig implements FunctionConfigInterface
         return $this->useCacheTtl;
     }
 
-    public function setAllowLocalOrigins(bool $value): self
+    public function withAllowLocalOrigins(bool $value): self
     {
-        $this->allowLocalOrigins = $value;
-
-        return $this;
+        return clone ($this, ['allowLocalOrigins' => $value]);
     }
 
-    public function setAllowUnauthenticated(bool $value): self
+    public function withAllowUnauthenticated(bool $value): self
     {
-        $this->allowUnauthenticated = $value;
-
-        return $this;
+        return clone ($this, ['allowUnauthenticated' => $value]);
     }
 
-    public function setDebug(bool $value): self
+    public function withDebug(bool $value): self
     {
-        $this->debug = $value;
-
-        return $this;
+        return clone ($this, ['debug' => $value]);
     }
 
-    public function setRequiredHeaderKey(?string $value): self
+    public function withRequiredHeaderKey(?string $value): self
     {
-        $this->requiredHeaderKey = $value;
-
-        return $this;
+        return clone ($this, ['requiredHeaderKey' => $value]);
     }
 
-    public function setRequiredHeaderValue(?string $value): self
+    public function withRequiredHeaderValue(?string $value): self
     {
-        $this->requiredHeaderValue = $value;
-
-        return $this;
+        return clone ($this, ['requiredHeaderValue' => $value]);
     }
 
-    public function setRequiredOrigin(?string $value): self
+    public function withRequiredOrigin(?string $value): self
     {
-        $this->requiredOrigin = $value;
-
-        return $this;
+        return clone ($this, ['requiredOrigin' => $value]);
     }
 
-    public function setSurrogateKey(?string $value): self
+    public function withSurrogateKey(?string $value): self
     {
-        $this->surrogateKey = $value;
-
-        return $this;
+        return clone ($this, ['surrogateKey' => $value]);
     }
 
-    public function setUseBrowserCacheTtl(?int $value): FunctionConfigInterface
+    public function withUseBrowserCacheTtl(?int $value): self
     {
-        $this->useBrowserCacheTtl = $value;
-
-        return $this;
+        return clone ($this, ['useBrowserCacheTtl' => $value]);
     }
 
-    public function setUseCacheButRequestTtl(?int $value): FunctionConfigInterface
+    public function withUseCacheButRequestTtl(?int $value): self
     {
-        $this->useCacheButRequestTtl = $value;
-
-        return $this;
+        return clone ($this, ['useCacheButRequestTtl' => $value]);
     }
 
-    public function setUseCacheIfErrorTtl(?int $value): FunctionConfigInterface
+    public function withUseCacheIfErrorTtl(?int $value): self
     {
-        $this->useCacheIfErrorTtl = $value;
-
-        return $this;
+        return clone ($this, ['useCacheIfErrorTtl' => $value]);
     }
 
-    public function setUseCacheTtl(?int $value): FunctionConfigInterface
+    public function withUseCacheTtl(?int $value): self
     {
-        $this->useCacheTtl = $value;
-
-        return $this;
+        return clone ($this, ['useCacheTtl' => $value]);
     }
 }
